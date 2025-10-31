@@ -26,12 +26,12 @@ jobs:
         run: docker build -t pw-bdd .
 
       - name: Run Playwright tests in Docker
-        run: >-
+        run: |
           docker run --rm \
-          -v "${{ github.workspace }}/playwright-report:/app/playwright-report" \
-          -v "${{ github.workspace }}/test-results:/app/test-results" \
-          -v "${{ github.workspace }}/.features-gen:/app/.features-gen" \
-          pw-bdd
+            -v "${{ github.workspace }}/playwright-report:/app/playwright-report" \
+            -v "${{ github.workspace }}/test-results:/app/test-results" \
+            -v "${{ github.workspace }}/.features-gen:/app/.features-gen" \
+            pw-bdd
 
       - name: Upload Playwright report
         if: always()
