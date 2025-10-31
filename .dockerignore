@@ -1,0 +1,11 @@
+node_modules
+.features-gen
+test-results
+playwright-report
+tmp
+npm-debug.log*
+Dockerfile
+docker-compose.yml
+.git
+.gitignore
+
