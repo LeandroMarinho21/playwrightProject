@@ -18,6 +18,9 @@ RUN chown -R node:node /app
 
 USER node
 
+# Garante que os navegadores estejam disponíveis também para o usuário node.
+RUN npx playwright install
+
 ENV CI=1 \
     NO_COLOR=1 \
     TZ=America/Sao_Paulo
