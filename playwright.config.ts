@@ -9,6 +9,7 @@ const testDir = defineBddConfig({
 
 export default defineConfig({
   testDir,
+  workers: 3,
   reporter: [
     ['list'],
     ['html', { open: 'never' }]
