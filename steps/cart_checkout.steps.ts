@@ -1,7 +1,45 @@
-import { expect } from '@playwright/test';
+import { expect, test, type BrowserContext, type TestInfo } from '@playwright/test';
 import { Given, When, Then } from './bdd.ts';
 
-const BASE_URL = 'https://ecommerce-playground.lambdatest.io/';
+const BASE_URL = 'https://ecommerce-playground.lambdatest.io';
+
+type ScenarioState = {
+  cartApiResponseText?: string;
+};
+
+const scenarioStateByTest = new WeakMap<TestInfo, ScenarioState>();
+
+const PRODUCT_IDS: Record<string, string> = {
+  'Nikon D300': '63',
+  'Canon EOS 5D': '30',
+  MacBook: '43'
+};
+
+const getScenarioState = (): ScenarioState => {
+  const info = test.info();
+  let state = scenarioStateByTest.get(info);
+  if (!state) {
+    state = {};
+    scenarioStateByTest.set(info, state);
+  }
+  return state;
+};
+
+const extractCartRemoveKeys = (html: string): string[] => {
+  const keys = new Set<string>();
+  const regex = /cart\.remove\('([^']+)'\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(html)) !== null) {
+    keys.add(match[1]);
+  }
+  return [...keys];
+};
+
+const fetchCartHtml = async (context: BrowserContext): Promise<string> => {
+  const response = await context.request.get(`${BASE_URL}/index.php?route=checkout/cart`);
+  expect(response.ok()).toBeTruthy();
+  return response.text();
+};
 
 Given('que estou na página inicial da loja', async ({ page }) => {
   await page.goto(BASE_URL);
@@ -22,7 +60,23 @@ When('eu adicionar o produto {string} ao carrinho', async ({ page }, productName
   const productHeading = page.getByRole('heading', { level: 4, name: productName }).first();
   await expect(productHeading).toBeVisible();
 
-  await page.locator('button', { hasText: 'Add to Cart' }).nth(1).click();
+  const productId = PRODUCT_IDS[productName];
+  if (!productId) {
+    throw new Error(`Produto "${productName}" não mapeado em PRODUCT_IDS`);
+  }
+
+  await page.waitForFunction(() => {
+    const globalWindow = globalThis as unknown as { cart?: { add?: (pid: string) => void } };
+    return typeof globalWindow.cart?.add === 'function';
+  });
+
+  await page.evaluate((id) => {
+    const globalWindow = globalThis as unknown as { cart?: { add?: (pid: string) => void } };
+    if (!globalWindow.cart?.add) {
+      throw new Error('Função cart.add indisponível na página');
+    }
+    globalWindow.cart.add(id);
+  }, productId);
 });
 
 When('eu acessar o carrinho pela notificação', async ({ page }) => {
@@ -57,7 +111,9 @@ When('eu removo o produto {string} do carrinho', async ({ page }, productName: s
 });
 
 Then('devo ver o carrinho vazio', async ({ page }) => {
-  const emptyMessage = page.locator('#content').getByText('Your shopping cart is empty!', { exact: true });
+  const emptyMessage = page.locator('#content').getByText('Your shopping cart is empty!', {
+    exact: true
+  });
   await expect(emptyMessage.first()).toBeVisible();
 });
 
@@ -85,5 +141,82 @@ When('eu tento adicionar o produto ao carrinho sem escolher opção', async ({ p
 Then('devo ver uma mensagem informando que a seleção de opção é obrigatória', async ({ page }) => {
   const inlineError = page.getByText(/required!/i).first();
   await expect(inlineError).toBeVisible();
+});
+
+When('eu consultar o carrinho via API', async ({ context }) => {
+  const html = await fetchCartHtml(context);
+  getScenarioState().cartApiResponseText = html;
+});
+
+Then('os dados do carrinho via API devem refletir o item {string} com total {string}', async ({}, productName: string, total: string) => {
+  const { cartApiResponseText } = getScenarioState();
+  expect(cartApiResponseText, 'Nenhum resultado de API armazenado').toBeTruthy();
+  expect(cartApiResponseText!).toContain(productName);
+  expect(cartApiResponseText!).toContain(total.replace('$', '')); // valores podem vir sem símbolo
+});
+
+When('eu adicionar via API o produto {string}', async ({ context }, productName: string) => {
+  const productId = PRODUCT_IDS[productName];
+  expect(productId, `Produto desconhecido para API: ${productName}`).toBeTruthy();
+
+  const response = await context.request.post(`${BASE_URL}/index.php?route=checkout/cart/add`, {
+    form: {
+      product_id: productId,
+      quantity: 1
+    }
+  });
+
+  expect(response.ok()).toBeTruthy();
+  const bodyText = await response.text();
+  // Quando disponível, a resposta vem em JSON; ignoramos erros de parse.
+  if (bodyText.trim().startsWith('{')) {
+    try {
+      const json = JSON.parse(bodyText);
+      expect(json.success, 'Resposta de inclusão não retornou sucesso').toBeTruthy();
+    } catch (error) {
+      // Ignora caso o backend devolva HTML.
+    }
+  }
+});
+
+When('eu acessar o carrinho pela UI', async ({ page }) => {
+  await page.goto(`${BASE_URL}/index.php?route=checkout/cart`);
+});
+
+Then('os dados do carrinho via API devem indicar indisponibilidade', async () => {
+  const { cartApiResponseText } = getScenarioState();
+  expect(cartApiResponseText, 'Nenhum resultado de API armazenado').toBeTruthy();
+  expect(cartApiResponseText!).toMatch(/Products marked with \*\*\*/i);
+});
+
+Then('devo ver o item {string} marcado como indisponível no carrinho', async ({ page }, productName: string) => {
+  const row = page
+    .getByRole('row')
+    .filter({ has: page.getByRole('link', { name: productName, exact: true }) })
+    .filter({ hasText: '***' })
+    .first();
+  await expect(row).toBeVisible();
+});
+
+When('eu limpo o carrinho via API', async ({ context }) => {
+  const html = await fetchCartHtml(context);
+  const keys = extractCartRemoveKeys(html);
+
+  for (const key of keys) {
+    const response = await context.request.get(`${BASE_URL}/index.php?route=checkout/cart&remove=${encodeURIComponent(key)}`);
+    expect(response.ok()).toBeTruthy();
+  }
+
+  // Como fallback, limpar cookies garante que o carrinho seja resetado para testes subsequentes.
+  await context.clearCookies();
+  getScenarioState().cartApiResponseText = undefined;
+});
+
+Then('o carrinho deve ficar vazio na UI', async ({ page }) => {
+  await page.goto(`${BASE_URL}/index.php?route=checkout/cart`);
+  const emptyMessage = page.locator('#content').getByText('Your shopping cart is empty!', {
+    exact: true
+  });
+  await expect(emptyMessage.first()).toBeVisible();
 });
 

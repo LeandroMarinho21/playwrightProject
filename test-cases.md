@@ -55,4 +55,46 @@ Documenta os fluxos mapeados durante a exploração manual para guiar a implemen
 - Reutilizar locators baseados em roles/labels identificados acima.
 - Garantir independência dos cenários limpando o carrinho ao final ou reiniciando estado via `Given`.
 - Registrar evidências (screenshot/video) já configuradas em `playwright.config.ts` ao executar os testes.
+- Incluir steps de API (`request.newContext`) para consultar carrinho e estoque quando aplicável.
+
+## Cenário 4 – Sincronizar resumo do carrinho via API
+
+- **Objetivo**: Validar que o total e os itens exibidos na UI refletem o payload retornado pelo endpoint de carrinho.
+- **Pré-condições**: Carrinho vazio; usuários anônimos mantidos com mesmo contexto de sessão entre UI e API.
+- **Passos**:
+  1. Executar passos 1 a 5 do Cenário 1 para adicionar o item via UI.
+  2. Chamar `GET /cart` (ou endpoint equivalente) com cookies/sessão capturados da mesma execução.
+  3. Comparar a resposta JSON (produto, quantidade, subtotal/total) com os valores exibidos na tabela do carrinho.
+  4. Opcionalmente remover o item via `DELETE /cart/{id}` e confirmar que a UI reflete o carrinho vazio.
+- **Checkpoints sugeridos**:
+  - Response code `200` e schema válido.
+  - Totais (`subtotal`, `tax`, `total`) iguais nos dois canais.
+  - Remoção via API reflete na UI após refresh.
+
+## Cenário 5 – Garantir bloqueio de checkout com estoque insuficiente via API
+
+- **Objetivo**: Reforçar a mensagem de indisponibilidade verificando o estado do carrinho e estoque via endpoints antes de tentar o checkout.
+- **Pré-condições**: Carrinho vazio; item com estoque menor que o solicitado.
+- **Passos**:
+  1. Criar estado via API (`POST /cart`) adicionando item com estoque baixo.
+  2. Acessar o carrinho pela UI (pular passos 1-4 do Cenário 1) e validar que o item está marcado com `***`.
+  3. Chamar `GET /inventory/{sku}` para confirmar quantidade disponível.
+  4. Tentar prosseguir para checkout na UI e capturar o aviso de indisponibilidade.
+- **Checkpoints sugeridos**:
+  - API retorna `quantityAvailable` menor que a quantidade do carrinho.
+  - Aviso `***` exibido na UI.
+  - Checkout não navega para `/checkout/checkout` enquanto o estado estiver inconsistente.
+
+## Cenário 6 – Realizar limpeza de estado via API
+
+- **Objetivo**: Garantir independência dos testes removendo resíduos de carrinho e autenticação por chamadas HTTP.
+- **Pré-condições**: Sessão ativa com itens ou login de testes.
+- **Passos**:
+  1. Após cada cenário, executar `DELETE /cart` ou endpoint equivalente para limpar itens.
+  2. Se houve login via API, invalidar token (`POST /logout` ou `DELETE /session`).
+  3. Confirmar pela UI (reload do carrinho) que o estado foi restaurado para vazio.
+- **Checkpoints sugeridos**:
+  - Resposta `204`/`200` para operações de limpeza.
+  - Carrinho sem itens ao recarregar a página.
+  - Nenhum token ativo remanescente (validar via chamada protegida retornar `401`).
 

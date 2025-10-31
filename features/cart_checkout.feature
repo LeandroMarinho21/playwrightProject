@@ -25,3 +25,32 @@ Funcionalidade: Fluxos críticos de carrinho e checkout
     E eu tento adicionar o produto ao carrinho sem escolher opção
     Então devo ver uma mensagem informando que a seleção de opção é obrigatória
 
+  Cenário: Sincronizar resumo do carrinho via API
+    Dado que estou na página inicial da loja
+    Quando eu buscar pelo produto "Nikon D300"
+    E eu adicionar o produto "Nikon D300" ao carrinho
+    E eu consultar o carrinho via API
+    Então os dados do carrinho via API devem refletir o item "Nikon D300" com total "$98.00"
+    E eu acessar o carrinho pela notificação
+    E eu removo o produto "Nikon D300" do carrinho
+    Então devo ver o carrinho vazio
+
+  Cenário: Garantir bloqueio de checkout com estoque insuficiente via API
+    Quando eu adicionar via API o produto "Nikon D300"
+    E eu acessar o carrinho pela UI
+    E eu consultar o carrinho via API
+    Então os dados do carrinho via API devem indicar indisponibilidade
+    E devo ver o item "Nikon D300" marcado como indisponível no carrinho
+    Quando eu avanço para o checkout
+    Então devo ver um aviso de indisponibilidade no carrinho
+    E eu limpo o carrinho via API
+    Então o carrinho deve ficar vazio na UI
+
+  Cenário: Limpeza de estado via API após compras
+    Dado que estou na página inicial da loja
+    Quando eu buscar pelo produto "Nikon D300"
+    E eu adicionar o produto "Nikon D300" ao carrinho
+    E eu consultar o carrinho via API
+    E eu limpo o carrinho via API
+    Então o carrinho deve ficar vazio na UI
+
