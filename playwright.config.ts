@@ -16,8 +16,8 @@ export default defineConfig({
   ],
   use: {
     trace: 'on-first-retry',
-    screenshot: 'only-on-failure', // Captura evidência visual automaticamente.
-    video: 'retain-on-failure' // Retém vídeo apenas quando o teste falha.
+    screenshot: 'on',
+    video: 'on'
   },
   projects: [
     {
