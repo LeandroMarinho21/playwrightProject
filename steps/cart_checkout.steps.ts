@@ -111,10 +111,12 @@ When('eu removo o produto {string} do carrinho', async ({ page }, productName: s
 });
 
 Then('devo ver o carrinho vazio', async ({ page }) => {
-  const emptyMessage = page.locator('#content').getByText('Your shopping cart is empty!', {
-    exact: true
-  });
-  await expect(emptyMessage.first()).toBeVisible();
+  const emptyMessage = page
+    .locator('#content')
+    .locator('p')
+    .filter({ hasText: 'Your shopping cart is empty!' })
+    .first();
+  await expect(emptyMessage).toBeVisible();
 });
 
 When('eu avanço para o checkout', async ({ page }) => {

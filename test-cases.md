@@ -98,3 +98,54 @@ Documenta os fluxos mapeados durante a exploração manual para guiar a implemen
   - Carrinho sem itens ao recarregar a página.
   - Nenhum token ativo remanescente (validar via chamada protegida retornar `401`).
 
+## Cenário 7 – Registrar nova conta via My Account
+
+- **Objetivo**: Garantir que um usuário sem conta consegue efetuar cadastro completo pela rota `My Account → Register`.
+- **Pré-condições**: Usuário não autenticado; dropdown `My Account` visível no topo.
+- **Passos**:
+  1. Validar que o cabeçalho apresenta o botão `getByRole('button', { name: 'My Account' })`.
+  2. Abrir o menu e clicar em `getByRole('link', { name: 'Register' })`.
+  3. Confirmar URL `/index.php?route=account/register` e heading `getByRole('heading', { level: 1, name: 'Create Account' })`.
+  4. Preencher campos obrigatórios com dados válidos usando `getByLabel` (`First Name`, `Last Name`, `E-Mail`, `Telephone`, `Password`, `Password Confirm`).
+  5. Marcar o checkbox de política `getByRole('checkbox', { name: /Privacy Policy/i })`.
+  6. Acionar `getByRole('button', { name: 'Continue' })`.
+  7. Verificar redirecionamento para `/index.php?route=account/success` e mensagem `Your Account Has Been Created!` (`getByRole('heading', { name: /Has Been Created/i })`).
+- **Checkpoints sugeridos**:
+  - Campos exibidos e habilitados antes do preenchimento.
+  - Mensagens de validação não aparecem com dados válidos.
+  - Página de sucesso carregada com texto confirmando criação.
+  - Dropdown `My Account` passa a exibir opções de usuário autenticado (ex.: `Logout`).
+
+## Cenário 8 – Autenticar usuário existente via My Account
+
+- **Objetivo**: Validar login através de credenciais conhecidas pelo menu `My Account`.
+- **Pré-condições**: Conta existente (usuário previamente cadastrado) e sessão deslogada.
+- **Passos**:
+  1. Abrir `My Account` e selecionar `Login` (`getByRole('link', { name: 'Login' })`).
+  2. Confirmar heading `Account Login` (`getByRole('heading', { level: 1, name: 'Account Login' })`).
+  3. Preencher `E-Mail Address` e `Password` via `getByLabel`.
+  4. Acionar `getByRole('button', { name: 'Login' })`.
+  5. Validar navegação para `/index.php?route=account/account`.
+  6. Confirmar heading `My Account` e presença das seções `My Orders`, `My Affiliate Account`, `Newsletter` (`getByRole('heading', { level: 2, name: /My Orders/i })`, etc.).
+- **Checkpoints sugeridos**:
+  - Alertas de erro não exibidos com credenciais válidas.
+  - Dashboard visível com links de manutenção (`getByRole('link', { name: 'Edit your account information' })`).
+  - Dropdown `My Account` passa a expor `Logout`.
+
+## Cenário 9 – Recuperar senha a partir do menu My Account
+
+- **Objetivo**: Validar fluxo de “Forgotten Password” garantindo feedback adequado para e-mail registrado.
+- **Pré-condições**: Conta existente com e-mail conhecido; usuário não autenticado.
+- **Passos**:
+  1. Acessar `Login` via `My Account`.
+  2. Selecionar `getByRole('link', { name: 'Forgotten Password' })`.
+  3. Confirmar heading `Forgot Your Password?` (`getByRole('heading', { level: 1, name: /Forgot Your Password/i })`).
+  4. Preencher `E-Mail Address` com a conta existente (`getByLabel('E-Mail Address')`).
+  5. Acionar `getByRole('button', { name: 'Continue' })`.
+  6. Validar alerta de sucesso `getByRole('alert')` contendo `An email with a confirmation link has been sent...`.
+  7. (Opcional) Repetir com e-mail inexistente e confirmar alerta de erro `Warning: The E-Mail Address was not found...`.
+- **Checkpoints sugeridos**:
+  - Texto instrucional inicial visível.
+  - Alerta de sucesso exibido após submissão válida.
+  - No cenário negativo opcional, alerta de erro adequado e permanência na página.
+
